@@ -1,27 +1,31 @@
-import Database from "../Database/index.js";
-import { v4 as uuidv4 } from "uuid";
-export function findAllEnrollments() {
-    return Database.enrollments;
+import model from "./model.js";
+export async function findCoursesForUser(userId) {
+    if (typeof userId !== 'string') {
+        throw new Error('userId must be a string');
+    }
+
+    const enrollments = await model.find(
+        { user: userId },
+        null,
+        { sort: { createdAt: -1 } }
+    ).populate("course");
+    
+    console.log("ENROLLMENTS: " + enrollments);
+
+    if (!enrollments || !Array.isArray(enrollments)) {
+        return [];
+    }
+
+    return enrollments.map((enrollment) => enrollment.course);
 }
-export function enrollUserInCourse(userId, courseId) {
-    const { enrollments } = Database;
-    const newEnrollment = { _id: uuidv4(), user: userId, course: courseId };
-    enrollments.push(newEnrollment);
-    return newEnrollment;
+export async function findUsersForCourse(courseId) {
+    const enrollments = await model.find({ course: courseId }).populate("user");
+    return enrollments.map((enrollment) => enrollment.user);
 }
-export function unenrollUserFromCourse(userId, courseId) {
-    const { enrollments } = Database;
-    Database.enrollments = enrollments.filter(
-        (enrollment) => enrollment.user !== userId || enrollment.course !== courseId
-    );
-    return { status: "success" };
+export function enrollUserInCourse(user, course) {
+    const newEnrollment = { user, course, _id: `${user}-${course}` };
+    return model.create(newEnrollment);
 }
-export function findUsersEnrolledInCourse(courseId) {
-    const { users, enrollments } = Database;
-    return users.filter((user) =>
-        enrollments.some(
-            (enrollment) =>
-                enrollment.user === user._id && enrollment.course === courseId
-        )
-    );
+export function unenrollUserFromCourse(user, course) {
+    return model.deleteOne({ user, course });
 }
